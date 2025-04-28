@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
           if (!data.loggedIn) {
-            window.location.href = '/login.html';
+            window.location.href = '/login';
           } else {
             updateWelcomeBadge(data.user.username); // Show welcome badge
             loadZones(); // ✅ Only now load zones!
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(err => {
           console.error('Error checking session', err);
-          window.location.href = '/login.html';
+          window.location.href = '/login';
         });
     }
 
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
                   <div class="text-muted small">Last updated: ${item.lastUpdated}</div>
                 </td>
                 <td>
-                  <a href="/zone.html?zone=${item.zone}" class="btn btn-primary btn-sm">Manage</a>
+                  <a href="/zone?zone=${item.zone}" class="btn btn-primary btn-sm">Manage</a>
                   <button class="btn btn-danger btn-sm" onclick="deleteZone('${item.zone}')">Delete</button>
                 </td>
               `;
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(result => {
         if (result.status) {
           showToast('Zone created!', 'success');
-          window.location.href = `/zone.html?zone=${zoneName}`;
+          window.location.href = `/zone?zone=${zoneName}`;
         } else {
           showToast('Error creating zone', 'error');
         }
@@ -148,11 +148,14 @@ document.addEventListener('DOMContentLoaded', function () {
       }, 3000);
     }
 
+    window.deleteZone = deleteZone;
+    window.loadZones = loadZones;
+
 });
 
 
 function logout() {
     fetch('/api/logout', { method: 'POST' })
-      .then(() => window.location.href = '/login.html')
+      .then(() => window.location.href = '/login')
       .catch(err => console.error('Logout error', err));
   }

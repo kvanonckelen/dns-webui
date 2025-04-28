@@ -1,16 +1,14 @@
-version: '3.8'
-
 services:
   dns-webui:
-    build: .
+    image: kevinvobw/dns-webui
     container_name: dns-webui
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
+      - "8053:53/udp"
+      - "8053:53/tcp"
       - "80:80"
       - "443:443"
     volumes:
-      - ./zones:/app/zones
       - ./bind/etc:/etc/bind
       - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     restart: unless-stopped

@@ -14,7 +14,7 @@ document.getElementById('login-form').addEventListener('submit', function(e) {
     .then(res => res.json())
     .then(data => {
       if (data.status === 'forceChange') {
-        window.location.href = '/change-password.html';
+        window.location.href = '/change-password';
       } else if (data.status === 'ok') {
         window.location.href = '/';
       } else {

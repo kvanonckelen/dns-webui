@@ -20,6 +20,31 @@ A full Bind9 DNS Manager with a secure WebUI, built inside a Ubuntu container.
 ```bash
 git clone https://github.com/kvanonckelen/dns-webui.git
 cd dns-webui
+```
+
+## Docker-compose file
+
+```yml
+services:
+  dns-webui:
+    image: kevinvobw/dns-webui
+    container_name: dns-webui
+    ports:
+      - "8053:53/udp"
+      - "8053:53/tcp"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./bind/etc:/etc/bind
+      - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    restart: unless-stopped
+```
+
+Make sure you have created a volume where the nginx configuration files can be stored. 
+If that is done, you can start the container.
+
+```bash
 docker compose up --build
 ```
 
@@ -34,6 +59,8 @@ Default credentials:
     Password: admin123
 
     (Force password change required after first login)
+
+
 
 ## PORTS
 
@@ -76,8 +103,5 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-
-```
 
 

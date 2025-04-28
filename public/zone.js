@@ -196,7 +196,7 @@ function showToast(message, type = 'success') {
 
 function logout() {
     fetch('/api/logout', { method: 'POST' })
-      .then(() => window.location.href = '/login.html')
+      .then(() => window.location.href = '/login')
       .catch(err => console.error('Logout error', err));
   }
   

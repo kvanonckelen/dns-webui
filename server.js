@@ -46,7 +46,7 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   console.log(req.session);
   if (!req.session || !req.session.user) {
-    return res.redirect('/login.html');
+    return res.redirect('/login');
   }
   
   res.sendFile(path.join(__dirname, 'views', 'index.html'));
@@ -54,7 +54,7 @@ app.get('/', (req, res) => {
 
 app.get('/zone', (req, res) => {
   if (!req.session || !req.session.user) {
-    return res.redirect('/login.html');
+    return res.redirect('/login');
   }
   
   res.sendFile(path.join(__dirname, 'views', 'zone.html'));
