@@ -30,8 +30,8 @@ services:
     image: kevinvobw/dns-webui
     container_name: dns-webui
     ports:
-      - "8053:53/udp"
-      - "8053:53/tcp"
+      - "53:53/udp"
+      - "53:53/tcp"
       - "80:80"
       - "443:443"
     volumes:
