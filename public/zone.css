@@ -1,0 +1,34 @@
+/* Animate dropdown smoothly */
+.dropdown-menu {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); /* Soft shadow */
+  border-radius: 0.5rem; /* Rounded corners */
+  padding: 0.5rem 0; /* Nice vertical padding */
+  transition: opacity 0.3s ease, transform 0.3s ease; /* Smooth fade and slide */
+}
+
+/* When dropdown is showing */
+.dropdown.show .dropdown-menu {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+/* When dropdown is hidden */
+.dropdown-menu:not(.show) {
+  opacity: 0;
+  transform: translateY(10px);
+  visibility: hidden;
+}
+
+/* Smooth hover effect on dropdown items */
+.dropdown-menu .dropdown-item {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Nice light hover */
+.dropdown-menu .dropdown-item:hover {
+  background-color: #f1f3f5; /* Light grey background on hover */
+  color: #000; /* Slightly darker text on hover */
+}
+

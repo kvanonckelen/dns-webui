@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Users</title>
+  <link href="https://unpkg.com/@tabler/core@latest/dist/css/tabler.min.css" rel="stylesheet">
+  <script defer src="/static/users.js"></script>
+</head>
+<body>
+  <div class="page">
+    <header class="navbar navbar-expand-md d-print-none">
+      <div class="container-xl">
+        <h1>Manage Users</h1>
+        <a href="/" class="btn btn-secondary ml-2">← Back to Dashboard</a>
+      </div>
+    </header>
+
+    <div class="container-xl my-4">
+      <h2 class="mb-3">Current Users</h2>
+      <div class="card mb-4">
+        <div class="table-responsive">
+          <table class="table" id="users-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 class="mb-3">Add New User</h2>
+      <form id="add-user-form">
+        <div class="mb-3">
+          <label>Username</label>
+          <input type="text" class="form-control" name="username" required>
+        </div>
+        <div class="mb-3">
+          <label>Password</label>
+          <input type="password" class="form-control" name="password" required>
+        </div>
+        <div class="mb-3">
+          <label>Role</label>
+          <select class="form-control" name="role" required>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Add User</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050;"></div>
+</body>
+</html>

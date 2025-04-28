@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Zone Records</title>
+  <link rel="stylesheet" href="/static/zone.css">
+  <link href="https://unpkg.com/@tabler/core@latest/dist/css/tabler.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/js/tabler.min.js" defer></script>
+    
+  <script defer src="/static/zone.js"></script>
+</head>
+<body>
+    <!-- Loading Page -->
+        <div id="loading-page" style="position: fixed; top:0; left:0; width:100%; height:100%; background: #fff; z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.5s ease;">
+            <div class="text-center">
+            <div class="spinner-border text-primary mb-3" style="width: 4rem; height: 4rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="text-muted">Loading Zone Records...</div>
+            </div>
+        </div>
+  
+  <div class="page">
+    <header class="navbar navbar-expand-md d-print-none">
+
+      <div class="container-xl">
+        <h1 id="zone-title">Zone Records</h1>
+        <a href="/" class="btn btn-secondary ml-2">← Back to Zones</a>
+      </div>
+      <div class="d-flex align-items-center">
+        <label class="form-check form-switch me-3">
+          <input class="form-check-input" type="checkbox" id="autoReloadToggle" checked>
+          <span class="form-check-label">Auto Reload BIND</span>
+        </label>
+      </div>
+      <a href="/users" class="btn btn-outline-primary mx-4">Manage Users</a>
+      <div class="d-flex align-items-center mx-4">
+        <button class="btn btn-outline-danger" onclick="logout()">Logout</button>
+      </div>
+      
+    </header>
+
+    <div class="page-wrapper">
+
+          
+      <div class="container-xl">
+
+        <div class="d-flex justify-content-end my-4 gap-2">
+  
+            <div class="dropdown hidden">
+              <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                More
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+                <li><a class="dropdown-item" href="#">Import Zone (Coming Soon)</a></li>
+                <li><a class="dropdown-item" href="#">Export Zone (Coming Soon)</a></li>
+              </ul>
+            </div>
+          
+            <button class="btn btn-primary" onclick="openAddRecordModal()">Add Record</button>
+          </div>
+          
+        <div class="card">
+          <div class="table-responsive">
+            <table class="table card-table table-vcenter text-nowrap" id="records-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>TTL</th>
+                  <th>Class</th>
+                  <th>Type</th>
+                  <th>Value</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Records will be loaded here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<!-- Modal -->
+<div class="modal" id="addRecordModal" tabindex="-1" role="dialog" style="display: none; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content" style="opacity: 0; transform: scale(0.95); transition: opacity 0.3s ease, transform 0.3s ease; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35);">
+        <div class="modal-header">
+          <h5 class="modal-title">Add New Record</h5>
+          <button type="button" class="btn-close" onclick="closeAddRecordModal()" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="add-record-form">
+            <div class="mb-3">
+              <label class="form-label">Name <small class="text-muted">(e.g., www, mail, ftp)</small></label>
+              <input type="text" class="form-control" name="name" placeholder="Enter hostname like www or mail" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Type</label>
+              <select class="form-select" name="type" required>
+                <option value="A">A (IPv4 address)</option>
+                <option value="AAAA">AAAA (IPv6 address)</option>
+                <option value="CNAME">CNAME (Alias)</option>
+                <option value="MX">MX (Mail server)</option>
+                <option value="NS">NS (Name server)</option>
+                <option value="TXT">TXT (Text record)</option>
+                <option value="PTR">PTR (Reverse DNS)</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Value <small class="text-muted">(e.g., 192.168.0.1 or another hostname)</small></label>
+              <input type="text" class="form-control" name="value" placeholder="Enter IP address or alias" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">TTL <small class="text-muted">(optional, default 3600)</small></label>
+              <input type="number" class="form-control" name="ttl" placeholder="3600" min="60">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Class</label>
+              <input type="text" class="form-control" name="class" value="IN" readonly>
+            </div>
+  
+            <div class="modal-footer d-flex justify-content-end">
+              <button type="submit" class="btn btn-primary">Save Record</button>
+              <button type="button" class="btn btn-secondary ms-2" onclick="closeAddRecordModal()">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+
+  </div>
+  <div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050;"></div>
+
+</body>
+</html>
