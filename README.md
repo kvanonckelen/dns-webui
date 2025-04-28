@@ -80,6 +80,10 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
   -subj "/CN=localhost"
 ```
 
+### Advanced
+
+Want to do more with it? please see my (github repo)[https://github.com/kvanonckelen/dns-webui]
+
 ## LICENSE
 
 MIT License
