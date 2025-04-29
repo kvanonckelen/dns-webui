@@ -6,5 +6,3 @@ controls {
 };
 
 zone "kevin.dev" { type master; file "/etc/bind/zones/kevin.dev.zone"; };
-
-zone "vanonckelen.dev" { type master; file "/etc/bind/zones/vanonckelen.dev.zone"; };

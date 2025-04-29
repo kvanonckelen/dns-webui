@@ -150,7 +150,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     window.deleteZone = deleteZone;
     window.loadZones = loadZones;
-
+    window.openCreateZoneModal = openCreateZoneModal;
+    window.closeCreateZoneModal = closeCreateZoneModal;
+    window.logout = logout;
+    window.showToast = showToast;
 });
 
 

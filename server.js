@@ -22,9 +22,11 @@ app.use(cookieSession({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Directory for zone files
-const zonesDir = path.join(__dirname, 'zones');
+const zonesDir = '/etc/bind/zones';
 //Directory for users
 const usersPath = path.join(__dirname, 'users.json');
+// Directory for BIND config
+const bindDir = '/etc/bind/named.conf.local';
 
 
 // Create default user if no users.json
@@ -183,6 +185,36 @@ app.post('/api/logout', (req, res) => {
   res.json({ status: 'Logged out' });
 });
 
+// Utility: Simple zone file parser
+function simpleParseZone(zoneText) {
+  const lines = zoneText.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith(';'));
+  const zone = { a: [], ns: [], soa: null };
+  for (const line of lines) {
+    if (line.startsWith('$ORIGIN')) zone.$origin = line.split(/\s+/)[1].replace(/\.$/, '');
+    else if (line.startsWith('$TTL')) zone.$ttl = parseInt(line.split(/\s+/)[1], 10);
+    else if (line.includes('IN SOA')) {
+      const idx = lines.indexOf(line);
+      const parts = line.split(/\s+/);
+      zone.soa = {
+        mname: parts[2],
+        rname: parts[3],
+        serial: parseInt(lines[idx + 1]),
+        refresh: parseInt(lines[idx + 2]),
+        retry: parseInt(lines[idx + 3]),
+        expire: parseInt(lines[idx + 4]),
+        minimum: parseInt(lines[idx + 5].replace(')', ''))
+      };
+    } else if (line.includes('IN NS')) {
+      const parts = line.split(/\s+/);
+      zone.ns.push({ host: parts[3] });
+    } else if (line.includes('IN A')) {
+      const parts = line.split(/\s+/);
+      zone.a.push({ name: parts[0], ip: parts[3] });
+    }
+  }
+  return zone;
+}
+
 // Utility: Generate zone file text
 function generateZoneFile(zone) {
   let output = '';
@@ -228,35 +260,7 @@ function generateZoneFile(zone) {
   return output;
 }
 
-// Utility: Simple zone file parser
-function simpleParseZone(zoneText) {
-  const lines = zoneText.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith(';'));
-  const zone = { a: [], ns: [], soa: null };
-  for (const line of lines) {
-    if (line.startsWith('$ORIGIN')) zone.$origin = line.split(/\s+/)[1].replace(/\.$/, '');
-    else if (line.startsWith('$TTL')) zone.$ttl = parseInt(line.split(/\s+/)[1], 10);
-    else if (line.includes('IN SOA')) {
-      const idx = lines.indexOf(line);
-      const parts = line.split(/\s+/);
-      zone.soa = {
-        mname: parts[2],
-        rname: parts[3],
-        serial: parseInt(lines[idx + 1]),
-        refresh: parseInt(lines[idx + 2]),
-        retry: parseInt(lines[idx + 3]),
-        expire: parseInt(lines[idx + 4]),
-        minimum: parseInt(lines[idx + 5].replace(')', ''))
-      };
-    } else if (line.includes('IN NS')) {
-      const parts = line.split(/\s+/);
-      zone.ns.push({ host: parts[3] });
-    } else if (line.includes('IN A')) {
-      const parts = line.split(/\s+/);
-      zone.a.push({ name: parts[0], ip: parts[3] });
-    }
-  }
-  return zone;
-}
+
 
 // Utility: Load zone file safely
 function loadZone(zoneName) {
@@ -343,12 +347,13 @@ app.post('/api/zones',requireAuth, (req, res) => {
         expire: 1209600,
         minimum: 3600
       },
-      ns: [{ host: `ns1.${zone}.` }]
+      ns: [{ host: `ns1.${zone}.` }],
+      a: [{ name: "ns1", ip: "127.0.0.1" }]
     };
 
     saveZone(zone, newZone);
 
-    fs.appendFileSync(path.join(__dirname, 'bind/etc/named.conf.local'), `\nzone \"${zone}\" { type master; file \"/etc/bind/zones/${zone}.zone\"; };\n`);
+    fs.appendFileSync(bindDir, `\nzone \"${zone}\" { type master; file \"/etc/bind/zones/${zone}.zone\"; };\n`);
 
     res.json({ status: 'Zone created' });
   } catch (err) {
@@ -452,7 +457,7 @@ app.post('/api/reload',requireAuth, (req, res) => {
   const client = new net.Socket();
   let responseSent = false; // ✅ protect double response
 
-  client.connect(53, 'bind9', () => {
+  client.connect(53, 'localhost', () => {
     client.write('reload\n');
     client.end();
   });
