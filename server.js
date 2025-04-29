@@ -254,6 +254,7 @@ function simpleParseZone(zoneText) {
 // Utility: Generate zone file text
 function generateZoneFile(zone) {
   let output = '';
+
   if (zone.$origin) output += `$ORIGIN ${zone.$origin}.\n`;
   if (zone.$ttl) output += `$TTL ${zone.$ttl}\n`;
 
@@ -267,25 +268,31 @@ function generateZoneFile(zone) {
     output += `)\n`;
   }
 
-  const records = [
-    { type: 'NS', entries: zone.ns, format: r => `${r.name} IN NS ${r.host}` },
-    { type: 'A', entries: zone.a, format: r => `${r.name} IN A ${r.ip}` },
-    { type: 'AAAA', entries: zone.aaaa, format: r => `${r.name} IN AAAA ${r.ip}` },
-    { type: 'CNAME', entries: zone.cname, format: r => `${r.name} IN CNAME ${r.alias}` },
-    { type: 'MX', entries: zone.mx, format: r => `${r.name} IN MX ${r.preference} ${r.host}` },
-    { type: 'TXT', entries: zone.txt, format: r => `${r.name} IN TXT "${r.txt}"` },
-    { type: 'SRV', entries: zone.srv, format: r => `${r.name} IN SRV ${r.priority} ${r.weight} ${r.port} ${r.target}` },
-    { type: 'PTR', entries: zone.ptr, format: r => `${r.name} IN PTR ${r.ip}` }
-  ];
+  for (const [recordType, entries] of Object.entries(zone)) {
+    if (['soa', '$origin', '$ttl'].includes(recordType)) continue; // skip meta info
 
-  for (const { entries, format } of records) {
+    const type = recordType.toUpperCase();
+
     for (const record of entries) {
-      output += format(record) + '\n';
+      if (type === 'A' || type === 'AAAA' || type === 'PTR') {
+        output += `${record.name} IN ${type} ${record.ip}\n`;
+      } else if (type === 'CNAME') {
+        output += `${record.name} IN CNAME ${record.alias}\n`;
+      } else if (type === 'NS') {
+        output += `${record.name} IN NS ${record.host}\n`;
+      } else if (type === 'MX') {
+        output += `${record.name} IN MX ${record.preference} ${record.host}\n`;
+      } else if (type === 'TXT') {
+        output += `${record.name} IN TXT "${record.txt}"\n`;
+      } else if (type === 'SRV') {
+        output += `${record.name} IN SRV ${record.priority} ${record.weight} ${record.port} ${record.target}\n`;
+      }
     }
   }
 
   return output;
 }
+
 
 
 
@@ -438,32 +445,54 @@ app.post('/api/zones/:zone/records', requireAuth, (req, res) => {
     const zone = loadZone(zoneName);
     const lowerType = type.toLowerCase();
 
-    if (!zone[lowerType]) zone[lowerType] = [];
+    if (!zone[lowerType]) {
+      zone[lowerType] = [];
+    }
 
     const record = { name };
-    if (lowerType === 'a' || lowerType === 'aaaa' || lowerType === 'ptr') {
-      record.ip = value;
-    } else if (lowerType === 'cname') {
-      record.alias = value;
-    } else if (lowerType === 'mx') {
-      const [priority, exchange] = value.split(' ');
-      record.preference = parseInt(priority, 10);
-      record.host = exchange;
-    } else if (lowerType === 'txt') {
-      record.txt = value;
-    } else if (lowerType === 'ns') {
-      record.host = value;
+
+    switch (lowerType) {
+      case 'a':
+      case 'aaaa':
+      case 'ptr':
+        record.ip = value;
+        break;
+      case 'cname':
+        record.alias = value;
+        break;
+      case 'ns':
+        record.host = value;
+        break;
+      case 'mx':
+        const [preference, host] = value.split(' ');
+        record.preference = parseInt(preference, 10);
+        record.host = host;
+        break;
+      case 'txt':
+        record.txt = value;
+        break;
+      case 'srv':
+        const [priority, weight, port, target] = value.split(' ');
+        record.priority = parseInt(priority, 10);
+        record.weight = parseInt(weight, 10);
+        record.port = parseInt(port, 10);
+        record.target = target;
+        break;
+      default:
+        return res.status(400).json({ error: 'Unsupported record type' });
     }
 
     zone[lowerType].push(record);
     bumpSOASerial(zone);
     saveZone(zoneName, zone);
+
     res.json({ status: 'Record added' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not add record' });
   }
 });
+
 
 // API: Delete a record
 app.delete('/api/zones/:zone/records',requireAuth, (req, res) => {
