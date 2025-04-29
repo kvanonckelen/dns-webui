@@ -188,10 +188,14 @@ app.post('/api/logout', (req, res) => {
 // Utility: Simple zone file parser
 function simpleParseZone(zoneText) {
   const lines = zoneText.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith(';'));
-  const zone = { a: [], ns: [], soa: null };
+  const zone = { a: [], ns: [], cname: [], soa: null };
   for (const line of lines) {
-    if (line.startsWith('$ORIGIN')) zone.$origin = line.split(/\s+/)[1].replace(/\.$/, '');
-    else if (line.startsWith('$TTL')) zone.$ttl = parseInt(line.split(/\s+/)[1], 10);
+    if (line.startsWith('$ORIGIN')) {
+      zone.$origin = line.split(/\s+/)[1].replace(/\.$/, '');
+    }
+    else if (line.startsWith('$TTL')) {
+      zone.$ttl = parseInt(line.split(/\s+/)[1], 10);
+    }
     else if (line.includes('IN SOA')) {
       const idx = lines.indexOf(line);
       const parts = line.split(/\s+/);
@@ -204,16 +208,62 @@ function simpleParseZone(zoneText) {
         expire: parseInt(lines[idx + 4]),
         minimum: parseInt(lines[idx + 5].replace(')', ''))
       };
-    } else if (line.includes('IN NS')) {
+    }
+    else if (line.includes('IN NS')) {
       const parts = line.split(/\s+/);
-      zone.ns.push({ host: parts[3] });
-    } else if (line.includes('IN A')) {
+      zone.ns.push({ name: parts[0], host: parts[3] });
+    }
+    else if (line.includes('IN A')) {
       const parts = line.split(/\s+/);
       zone.a.push({ name: parts[0], ip: parts[3] });
     }
+    else if (line.includes('IN CNAME')) {
+      const parts = line.split(/\s+/);
+      zone.cname.push({ name: parts[0], alias: parts[3] });
+    }
+    else if (line.includes('IN MX')) {
+      const parts = line.split(/\s+/);
+      zone.mx.push({ name: parts[0], preference: parseInt(parts[3]), host: parts[4] });
+    }
+    else if (line.includes('IN AAAA')) {
+      const parts = line.split(/\s+/);
+      zone.aaaa.push({ name: parts[0], ip: parts[3] });
+    }
+    else if (line.includes('IN TXT')) {
+      const parts = line.split(/\s+/);
+      zone.txt.push({ name: parts[0], txt: parts.slice(3).join(' ') });
+    }
+    else if (line.includes('IN PTR')) {
+      const parts = line.split(/\s+/);
+      zone.ptr.push({ name: parts[0], ip: parts[3] });
+    }
+    else if (line.includes('IN SRV')) {
+      const parts = line.split(/\s+/);
+      zone.srv.push({
+        name: parts[0],
+        priority: parseInt(parts[3]),
+        weight: parseInt(parts[4]),
+        port: parseInt(parts[5]),
+        target: parts[6]
+      });
+    }
+    else if (line.includes('IN SPF')) {
+      const parts = line.split(/\s+/);
+      zone.spf.push({ name: parts[0], spf: parts.slice(3).join(' ') });
+    }
+    else if (line.includes('IN SSHFP')) {
+      const parts = line.split(/\s+/);
+      zone.sshfp.push({ name: parts[0], algorithm: parseInt(parts[3]), type: parseInt(parts[4]), fingerprint: parts[5] });
+    }
+    else if (line.includes('IN DS')) {
+      const parts = line.split(/\s+/);
+      zone.ds.push({ name: parts[0], keytag: parseInt(parts[3]), algorithm: parseInt(parts[4]), digesttype: parseInt(parts[5]), digest: parts[6] });
+    }
+    
   }
   return zone;
 }
+
 
 // Utility: Generate zone file text
 function generateZoneFile(zone) {
@@ -370,10 +420,25 @@ app.get('/api/zones/:zone/records',requireAuth, (req, res) => {
     ['a', 'aaaa', 'cname', 'mx', 'ns', 'txt', 'srv', 'ptr'].forEach(type => {
       if (zone[type]) {
         zone[type].forEach(record => {
+          let value = '';
+          if (type === 'a' || type === 'aaaa' || type === 'ptr') {
+            value = record.ip;
+          } else if (type === 'cname') {
+            value = record.alias;
+          } else if (type === 'mx') {
+            value = `${record.preference} ${record.host}`;
+          } else if (type === 'ns') {
+            value = record.host;
+          } else if (type === 'txt') {
+            value = record.txt;
+          } else if (type === 'srv') {
+            value = `${record.priority} ${record.weight} ${record.port} ${record.target}`;
+          }
+    
           records.push({
-            name: zone.$origin,
+            name: record.name,
             type: type.toUpperCase(),
-            value: Object.values(record).slice(1).join(' '),
+            value,
             ttl: zone.$ttl || 3600,
             ...record
           });
@@ -388,7 +453,7 @@ app.get('/api/zones/:zone/records',requireAuth, (req, res) => {
 });
 
 // API: Add a record
-app.post('/api/zones/:zone/records',requireAuth, (req, res) => {
+app.post('/api/zones/:zone/records', requireAuth, (req, res) => {
   try {
     const { name, type, value } = req.body;
     const zoneName = req.params.zone;
@@ -398,13 +463,19 @@ app.post('/api/zones/:zone/records',requireAuth, (req, res) => {
     if (!zone[lowerType]) zone[lowerType] = [];
 
     const record = { name };
-    if (lowerType === 'a' || lowerType === 'aaaa' || lowerType === 'cname' || lowerType === 'ptr') record.ip = value;
-    else if (lowerType === 'mx') {
+    if (lowerType === 'a' || lowerType === 'aaaa' || lowerType === 'ptr') {
+      record.ip = value;
+    } else if (lowerType === 'cname') {
+      record.alias = value;
+    } else if (lowerType === 'mx') {
       const [priority, exchange] = value.split(' ');
       record.preference = parseInt(priority, 10);
       record.host = exchange;
-    } else if (lowerType === 'txt') record.txt = value;
-    else if (lowerType === 'ns') record.host = value;
+    } else if (lowerType === 'txt') {
+      record.txt = value;
+    } else if (lowerType === 'ns') {
+      record.host = value;
+    }
 
     zone[lowerType].push(record);
     bumpSOASerial(zone);
@@ -452,29 +523,15 @@ app.delete('/api/zones/:zone',requireAuth, (req, res) => {
 });
 
 
-// API: Reload BIND manually
-app.post('/api/reload',requireAuth, (req, res) => {
-  const client = new net.Socket();
-  let responseSent = false; // ✅ protect double response
+const { exec } = require('child_process');
 
-  client.connect(53, 'localhost', () => {
-    client.write('reload\n');
-    client.end();
-  });
-
-  client.on('close', () => {
-    if (!responseSent) {
-      res.json({ status: 'BIND reloaded' });
-      responseSent = true;
+app.post('/api/reload', requireAuth, (req, res) => {
+  exec('rndc reload', (error, stdout, stderr) => {
+    if (error) {
+      console.error(`rndc reload failed: ${error}`);
+      return res.status(500).json({ error: 'Failed to reload BIND' });
     }
-  });
-
-  client.on('error', (err) => {
-    if (!responseSent) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to reload BIND' });
-      responseSent = true;
-    }
+    res.json({ status: 'BIND reloaded', message: stdout.trim() });
   });
 });
 
