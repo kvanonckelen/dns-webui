@@ -188,15 +188,14 @@ app.post('/api/logout', (req, res) => {
 // Utility: Simple zone file parser
 function simpleParseZone(zoneText) {
   const lines = zoneText.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith(';'));
-  const zone = { a: [], ns: [], cname: [], soa: null };
+  const zone = { a: [], aaaa: [], cname: [], ns: [], mx: [], txt: [], srv: [], ptr: [], soa: null };
+
   for (const line of lines) {
     if (line.startsWith('$ORIGIN')) {
       zone.$origin = line.split(/\s+/)[1].replace(/\.$/, '');
-    }
-    else if (line.startsWith('$TTL')) {
+    } else if (line.startsWith('$TTL')) {
       zone.$ttl = parseInt(line.split(/\s+/)[1], 10);
-    }
-    else if (line.includes('IN SOA')) {
+    } else if (line.includes('IN SOA')) {
       const idx = lines.indexOf(line);
       const parts = line.split(/\s+/);
       zone.soa = {
@@ -208,107 +207,86 @@ function simpleParseZone(zoneText) {
         expire: parseInt(lines[idx + 4]),
         minimum: parseInt(lines[idx + 5].replace(')', ''))
       };
-    }
-    else if (line.includes('IN NS')) {
+    } else {
       const parts = line.split(/\s+/);
-      zone.ns.push({ name: parts[0], host: parts[3] });
+      if (parts.length < 4) continue;
+
+      const [name, , type, ...rest] = parts;
+
+      switch (type) {
+        case 'A':
+          zone.a.push({ name, ip: rest[0] });
+          break;
+        case 'AAAA':
+          zone.aaaa.push({ name, ip: rest[0] });
+          break;
+        case 'CNAME':
+          zone.cname.push({ name, alias: rest[0] });
+          break;
+        case 'NS':
+          zone.ns.push({ name, host: rest[0] });
+          break;
+        case 'MX':
+          zone.mx.push({ name, preference: parseInt(rest[0], 10), host: rest[1] });
+          break;
+        case 'TXT':
+          zone.txt.push({ name, txt: rest.join(' ').replace(/"/g, '') });
+          break;
+        case 'SRV':
+          zone.srv.push({
+            name,
+            priority: parseInt(rest[0], 10),
+            weight: parseInt(rest[1], 10),
+            port: parseInt(rest[2], 10),
+            target: rest[3]
+          });
+          break;
+        case 'PTR':
+          zone.ptr.push({ name, ip: rest[0] });
+          break;
+      }
     }
-    else if (line.includes('IN A')) {
-      const parts = line.split(/\s+/);
-      zone.a.push({ name: parts[0], ip: parts[3] });
-    }
-    else if (line.includes('IN CNAME')) {
-      const parts = line.split(/\s+/);
-      zone.cname.push({ name: parts[0], alias: parts[3] });
-    }
-    else if (line.includes('IN MX')) {
-      const parts = line.split(/\s+/);
-      zone.mx.push({ name: parts[0], preference: parseInt(parts[3]), host: parts[4] });
-    }
-    else if (line.includes('IN AAAA')) {
-      const parts = line.split(/\s+/);
-      zone.aaaa.push({ name: parts[0], ip: parts[3] });
-    }
-    else if (line.includes('IN TXT')) {
-      const parts = line.split(/\s+/);
-      zone.txt.push({ name: parts[0], txt: parts.slice(3).join(' ') });
-    }
-    else if (line.includes('IN PTR')) {
-      const parts = line.split(/\s+/);
-      zone.ptr.push({ name: parts[0], ip: parts[3] });
-    }
-    else if (line.includes('IN SRV')) {
-      const parts = line.split(/\s+/);
-      zone.srv.push({
-        name: parts[0],
-        priority: parseInt(parts[3]),
-        weight: parseInt(parts[4]),
-        port: parseInt(parts[5]),
-        target: parts[6]
-      });
-    }
-    else if (line.includes('IN SPF')) {
-      const parts = line.split(/\s+/);
-      zone.spf.push({ name: parts[0], spf: parts.slice(3).join(' ') });
-    }
-    else if (line.includes('IN SSHFP')) {
-      const parts = line.split(/\s+/);
-      zone.sshfp.push({ name: parts[0], algorithm: parseInt(parts[3]), type: parseInt(parts[4]), fingerprint: parts[5] });
-    }
-    else if (line.includes('IN DS')) {
-      const parts = line.split(/\s+/);
-      zone.ds.push({ name: parts[0], keytag: parseInt(parts[3]), algorithm: parseInt(parts[4]), digesttype: parseInt(parts[5]), digest: parts[6] });
-    }
-    
   }
+
   return zone;
 }
-
 
 // Utility: Generate zone file text
 function generateZoneFile(zone) {
   let output = '';
-  if (zone.$origin) output += `$ORIGIN ${zone.$origin}.
-`;
-  if (zone.$ttl) output += `$TTL ${zone.$ttl}
-`;
+  if (zone.$origin) output += `$ORIGIN ${zone.$origin}.\n`;
+  if (zone.$ttl) output += `$TTL ${zone.$ttl}\n`;
+
   if (zone.soa) {
-    output += `@ IN SOA ${zone.soa.mname} ${zone.soa.rname} (
-`;
-    output += `  ${zone.soa.serial} ; serial
-  ${zone.soa.refresh} ; refresh
-  ${zone.soa.retry} ; retry
-  ${zone.soa.expire} ; expire
-  ${zone.soa.minimum} ; minimum ttl
-)
-`;
+    output += `@ IN SOA ${zone.soa.mname} ${zone.soa.rname} (\n`;
+    output += `  ${zone.soa.serial} ; serial\n`;
+    output += `  ${zone.soa.refresh} ; refresh\n`;
+    output += `  ${zone.soa.retry} ; retry\n`;
+    output += `  ${zone.soa.expire} ; expire\n`;
+    output += `  ${zone.soa.minimum} ; minimum ttl\n`;
+    output += `)\n`;
   }
-  if (zone.ns) {
-    for (const record of zone.ns) {
-      output += `@ IN NS ${record.host}
-`;
+
+  const records = [
+    { type: 'NS', entries: zone.ns, format: r => `${r.name} IN NS ${r.host}` },
+    { type: 'A', entries: zone.a, format: r => `${r.name} IN A ${r.ip}` },
+    { type: 'AAAA', entries: zone.aaaa, format: r => `${r.name} IN AAAA ${r.ip}` },
+    { type: 'CNAME', entries: zone.cname, format: r => `${r.name} IN CNAME ${r.alias}` },
+    { type: 'MX', entries: zone.mx, format: r => `${r.name} IN MX ${r.preference} ${r.host}` },
+    { type: 'TXT', entries: zone.txt, format: r => `${r.name} IN TXT "${r.txt}"` },
+    { type: 'SRV', entries: zone.srv, format: r => `${r.name} IN SRV ${r.priority} ${r.weight} ${r.port} ${r.target}` },
+    { type: 'PTR', entries: zone.ptr, format: r => `${r.name} IN PTR ${r.ip}` }
+  ];
+
+  for (const { entries, format } of records) {
+    for (const record of entries) {
+      output += format(record) + '\n';
     }
   }
-  if (zone.a) {
-    for (const record of zone.a) {
-      output += `${record.name} IN A ${record.ip}
-`;
-    }
-  }
-  if (zone.cname) {
-    for (const record of zone.cname) {
-      output += `${record.name} IN CNAME ${record.alias}
-`;
-    }
-  }
-  if (zone.mx) {
-    for (const record of zone.mx) {
-      output += `${record.name} IN MX ${record.preference} ${record.host}
-`;
-    }
-  }
+
   return output;
 }
+
 
 
 
